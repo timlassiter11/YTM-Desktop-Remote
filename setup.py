@@ -25,6 +25,13 @@ install_dir = (
 build_exe_options = {
     "zip_include_packages": ["encoder"],
     "include_msvcr": True,
+    "packages": [
+        "pynput"
+    ],
+    "includes": [
+        "pynput._util",
+        "pynput.keyboard._win32"
+    ],
     "excludes": [
         "tkinter",
         "wheel",
