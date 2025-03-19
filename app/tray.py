@@ -36,11 +36,9 @@ class SystemTrayApp(QSystemTrayIcon):
         self.menu.addSeparator()
 
         self.like_action = self.menu.addAction("Like")
-        self.like_action.setIcon(get_themed_icon(":/icons/like.svg"))
         self.like_action.triggered.connect(self.worker.toggle_like_track)
 
         self.dislike_action = self.menu.addAction("Dislike")
-        self.dislike_action.setIcon(rotate_icon(get_themed_icon(":/icons/like.svg"), 180))
         self.dislike_action.triggered.connect(self.worker.toggle_dislike_track)
 
         self.menu.addSeparator()
@@ -51,6 +49,11 @@ class SystemTrayApp(QSystemTrayIcon):
         self.exit_action.triggered.connect(QApplication.quit)
         self.setContextMenu(self.menu)
 
+        self.setToolTip("Loading...")
+        self._update_play_state()
+        self._update_like_state()
+        self._update_dislike_state()
+        
     @Slot()
     def _update_tooltip(self):
         self.setToolTip(f"{self.worker.title}\n{self.worker.artist}")
