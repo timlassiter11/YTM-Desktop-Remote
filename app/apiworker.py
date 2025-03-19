@@ -42,29 +42,59 @@ class ApiWorker(QObject):
 
         self._active_requests: dict[str, QNetworkReply] = {}
         self._timer = QTimer(self, interval=update_time)
-        self._timer.timeout.connect(self._update_status)
+        self._timer.timeout.connect(lambda: self._update_status())
         self._network_manager = QRestAccessManager(QNetworkAccessManager(self))
 
     @property
     def playing(self) -> bool:
         return self._playing
-
+    
+    @playing.setter
+    def playing(self, value: bool):
+        if value != self._playing:
+            self._playing = value
+            self.play_state_changed.emit(value)
+        
     @property
     def title(self) -> str | None:
         return self._title
+    
+    @title.setter
+    def title(self, value: str):
+        if value != self._title:
+            self._title = value
+            self.title_changed.emit(value)
 
     @property
     def artist(self) -> str | None:
         return self._artist
-
+    
+    @artist.setter
+    def artist(self, value: str):
+        if value != self._artist:
+            self._artist = value
+            self.artist_changed.emit(value)
+            
     @property
     def liked(self) -> bool:
         return self._liked
-
+    
+    @liked.setter
+    def liked(self, value: bool):
+        if value != self._liked:
+            self._liked = value
+            self.like_state_changed.emit(value)
+            
     @property
     def disliked(self) -> bool:
         return self._disliked
-
+    
+    @disliked.setter
+    def disliked(self, value: bool):
+        if value != self._disliked:
+            self._disliked = value
+            self.dislike_state_changed.emit(value)
+            
     def start(self):
         self._timer.start(1000)
 
@@ -81,12 +111,14 @@ class ApiWorker(QObject):
 
     @Slot()
     def toggle_like_track(self):
-        self._post_request("track/like", {}, lambda reply: self._update_status())
+        if self._post_request("track/like", {}, lambda reply: self._update_status()):
+            self.liked = not self._liked
 
     @Slot()
     def toggle_dislike_track(self):
-        self._post_request("track/dislike", {}, lambda reply: self._update_status())
-
+        if self._post_request("track/dislike", {}, lambda reply: self._update_status()):
+            self.disliked = not self._disliked
+            
     @Slot()
     def toggle_play_pause(self):
         if self._playing:
@@ -95,7 +127,7 @@ class ApiWorker(QObject):
             endpoint = "track/play"
 
         if self._post_request(endpoint, {}, self._handle_play_pause_reply):
-            self._update_play_state(not self._playing)
+            self.playing = not self._playing
 
     @Slot()
     def play(self):
@@ -111,23 +143,6 @@ class ApiWorker(QObject):
     def _update_status(self):
         self._get_request("track", self._handle_track_reply)
         self._get_request("track/state", self._handle_state_reply)
-
-    def _update_track_info(self, title: str | None, artist: str | None):
-        if title != self._title or artist != self._artist:
-            self._title = title
-            self._artist = artist
-            self.title_changed.emit()
-
-    def _update_play_state(self, playing: bool):
-        if playing != self._playing:
-            self._playing = playing
-            self.play_state_changed.emit()
-
-    def _update_like_state(self, like: bool, dislike: bool):
-        if like != self._liked or dislike != self._disliked:
-            self._liked = like
-            self._disliked = dislike
-            self.like_state_changed.emit()
 
     def _has_active_request(self, endpoint: str) -> bool:
         if endpoint in self._active_requests:
@@ -177,60 +192,57 @@ class ApiWorker(QObject):
         return reply
 
     def _handle_track_reply(self, reply: QRestReply):
-        if reply.isSuccess():
-            data = json.loads(reply.readText())
-            title = self._title
-            artist = self._artist
-            if "video" in data:
-                video_data = data["video"]
-                if "title" in video_data:
-                    title = video_data["title"]
-                    if title != self._title:
-                        self._title = title
-                        self.title_changed.emit(title)
+        try:
+            if reply.isSuccess():
+                text = reply.readText()
+                data = json.loads(text)
+                if not data:
+                    return
 
-                if "author" in video_data:
-                    artist = video_data["author"]
-                    if artist != self._artist:
-                        self._artist = artist
-                        self.artist_changed.emit(artist)
-        else:
-            _logger.warning(f"Failed to get track: {reply.errorString()}")
+                if "video" in data:
+                    video_data = data["video"]
+                    if "title" in video_data:
+                        self.title = video_data["title"]
 
+                    if "author" in video_data:
+                        self.artist = video_data["author"]
+            else:
+                _logger.warning(f"Failed to get track: {reply.errorString()}")
+        except Exception as ex:
+            _logger.exception(ex)
+            
     def _handle_state_reply(self, reply: QRestReply):
-        if reply.isSuccess():
-            data = json.loads(reply.readText())
-            playing = self._playing
-            like = self._liked
-            dislike = self._disliked
-            if "playing" in data:
-                playing = data["playing"]
-                if playing != self._playing:
-                    self._playing = playing
-                    self.play_state_changed.emit(playing)
-                    
+        try:
+            if reply.isSuccess():
+                text = reply.readText()
+                data = json.loads(text)
+                if not data:
+                    return
 
-            if "liked" in data:
-                like = data["liked"]
-                if like != self._liked:
-                    self._liked = like
-                    self.like_state_changed.emit(like)
-                    
-            if "disliked" in data:
-                dislike = data["disliked"]
-                if dislike != self._disliked:
-                    self._disliked = dislike
-                    self.dislike_state_changed.emit(dislike)
-        else:
-            _logger.warning(f"Failed to get state: {reply.errorString()}")
+                if "playing" in data:
+                    self.playing = data["playing"]
+
+                if "liked" in data:
+                    self.liked = data["liked"]
+
+                if "disliked" in data:
+                    self.disliked = data["disliked"]
+            else:
+                _logger.warning(f"Failed to get state: {reply.errorString()}")
+        except Exception as ex:
+            _logger.exception(ex)
 
     def _handle_play_pause_reply(self, reply: QRestReply):
-        if reply.isSuccess():
-            data = json.loads(reply.readText())
-            if "isPlaying" in data:
-                playing = data["isPlaying"]
-                if playing != self._playing:
-                    self._playing = playing
-                    self.play_state_changed.emit(playing)
-        else:
-            _logger.warning(f"Failed to toggle play/pause: {reply.errorString()}")
+        try:
+            if reply.isSuccess():
+                text = reply.readText()
+                data = json.loads(text)
+                if not data:
+                    return
+                
+                if "isPlaying" in data:
+                    self.playing = data["isPlaying"]
+            else:
+                _logger.warning(f"Failed to toggle play/pause: {reply.errorString()}")
+        except Exception as ex:
+            _logger.exception(ex)
