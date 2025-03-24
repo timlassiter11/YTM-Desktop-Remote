@@ -1,6 +1,6 @@
 import qtawesome as qta  # type: ignore
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QPixmap, QFontMetrics
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget
 
 from app.ui import ui_miniplayer
@@ -14,10 +14,10 @@ class MiniPlayerWidget(QWidget):
     dislike_triggered = Signal()
 
     def __init__(self, parent=None):
-        super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        super().__init__(parent)
         self.ui = ui_miniplayer.Ui_MiniPlayer()
         self.ui.setupUi(self)
-        self.setFixedWidth(400)
+        self.setFixedWidth(300)
 
         self.ui.playButton.setIcon(qta.icon("mdi.play"))
         self.ui.nextButton.setIcon(qta.icon("mdi.skip-next"))
@@ -36,7 +36,7 @@ class MiniPlayerWidget(QWidget):
 
     def sizeHint(self):
         hint = super().sizeHint()
-        hint.setWidth(400)
+        hint.setWidth(300)
         return hint
 
     def setTitle(self, title: str):

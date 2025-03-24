@@ -6,9 +6,9 @@ from PySide6.QtWidgets import QApplication
 
 from app.apiworker import ApiWorker
 from app.keyboardlistener import MediaKeyListener
-from app.tray import SystemTrayApp
 from app.ui import rc_resources
 from app.widgets import MiniPlayerWidget
+from app.widgets.mediaplayertrayicon import MediaPlayerTrayIcon
 
 from . import APP_DESCRIPTION
 
@@ -40,7 +40,13 @@ class Application:
 
         self._worker = ApiWorker(server=server)
         self._miniplayer = MiniPlayerWidget()
-        self._tray = SystemTrayApp(icon)
+        self._miniplayer.setWindowFlags(
+            Qt.WindowType.Popup
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
+
+        self._tray = MediaPlayerTrayIcon(icon)
 
         self._listener = None
         if listen:

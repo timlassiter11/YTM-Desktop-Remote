@@ -10,7 +10,9 @@
             "request": "launch",
             "module": "app",
             "console": "integratedTerminal",
-            "args": [ ],
+            "args": [
+                "--listen"
+            ],
             "justMyCode": true
         }
     ]

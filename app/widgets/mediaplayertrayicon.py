@@ -3,7 +3,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 
-class SystemTrayApp(QSystemTrayIcon):
+class MediaPlayerTrayIcon(QSystemTrayIcon):
     triggered = Signal()
     play_pause_triggered = Signal()
     next_triggered = Signal()

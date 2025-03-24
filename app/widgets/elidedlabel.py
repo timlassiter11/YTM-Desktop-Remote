@@ -11,6 +11,7 @@ class ElidedLabel(QLabel):
 
     def setText(self, text):
         self._text = text
+        self.setToolTip(text)
         self.update_elided_text()
         super().setText(self._elided_text)
 
