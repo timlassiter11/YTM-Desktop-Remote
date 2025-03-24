@@ -1,8 +1,10 @@
+from gettext import install
 import json
 import logging
 import typing
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
+from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import (
     QNetworkAccessManager,
     QNetworkReply,
@@ -20,6 +22,7 @@ class ApiWorker(QObject):
     play_state_changed = Signal(bool)
     like_state_changed = Signal(bool)
     dislike_state_changed = Signal(bool)
+    artwork_changed = Signal(QPixmap)
 
     def __init__(
         self,
@@ -39,6 +42,8 @@ class ApiWorker(QObject):
         self._playing: bool = False
         self._liked: bool = False
         self._disliked: bool = False
+        self._artwork_url: str | None = None
+        self._artwork: QPixmap | None = None
 
         self._active_requests: dict[str, QNetworkReply] = {}
         self._timer = QTimer(self, interval=update_time)
@@ -94,6 +99,15 @@ class ApiWorker(QObject):
         if value != self._disliked:
             self._disliked = value
             self.dislike_state_changed.emit(value)
+
+    @property
+    def artwork(self) -> QPixmap | None:
+        return self._artwork
+    
+    @artwork.setter
+    def artwork(self, value: QPixmap):
+        self._artwork = value
+        self.artwork_changed.emit(value)
             
     def start(self):
         self._timer.start(1000)
@@ -206,6 +220,15 @@ class ApiWorker(QObject):
 
                     if "author" in video_data:
                         self.artist = video_data["author"]
+
+                    if "thumbnail" in video_data:
+                        if "thumbnails" in video_data["thumbnail"]:
+                            thumbnails = video_data["thumbnail"]["thumbnails"]
+                            if isinstance(thumbnails, list) and thumbnails:
+                                url = thumbnails[0]["url"]
+                                if url != self._artwork_url:
+                                    self._artwork_url = url
+                                    self._network_manager.get(QNetworkRequest(url), self, self._handle_artwork_reply)
             else:
                 _logger.warning(f"Failed to get track: {reply.errorString()}")
         except Exception as ex:
@@ -244,5 +267,16 @@ class ApiWorker(QObject):
                     self.playing = data["isPlaying"]
             else:
                 _logger.warning(f"Failed to toggle play/pause: {reply.errorString()}")
+        except Exception as ex:
+            _logger.exception(ex)
+
+    def _handle_artwork_reply(self, reply: QRestReply):
+        try:
+            if reply.isSuccess():
+                pixmap = QPixmap()
+                pixmap.loadFromData(reply.readBody())
+                self.artwork = pixmap
+            else:
+                _logger.warning(f"Failed to get artwork: {reply.errorString()}")
         except Exception as ex:
             _logger.exception(ex)

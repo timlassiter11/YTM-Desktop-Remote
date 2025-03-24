@@ -1,84 +1,70 @@
-from webbrowser import get
-
-from PySide6.QtCore import Slot
+import qtawesome as qta # type: ignore
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
-
-from app.apiworker import ApiWorker
-from app.ui import rc_resources
-from app.utils import get_themed_icon, rotate_icon
 
 
 class SystemTrayApp(QSystemTrayIcon):
-    def __init__(self, icon, worker: ApiWorker, parent=None):
+    triggered = Signal()
+    play_pause_triggered = Signal()
+    next_triggered = Signal()
+    prev_triggered = Signal()
+    like_triggered = Signal()
+    dislike_triggered = Signal()
+    def __init__(self, icon, parent=None):
         super().__init__(icon, parent)
+        self.activated.connect(self._on_activated)
 
-        self.worker = worker
-        self.worker.title_changed.connect(self._update_tooltip)
-        self.worker.artist_changed.connect(self._update_tooltip)
-        self.worker.play_state_changed.connect(self._update_play_state)
-        self.worker.like_state_changed.connect(self._update_like_state)
-        self.worker.dislike_state_changed.connect(self._update_dislike_state)
-        self.worker.start()
-
-        self.menu = QMenu(parent)
-        # Play / Pause
-        self.play_pause_action = self.menu.addAction("")
-        self.play_pause_action.triggered.connect(self.worker.toggle_play_pause)
-        # Next
-        self.next_action = self.menu.addAction("Next")
-        self.next_action.setIcon(get_themed_icon(":/icons/next.svg"))
-        self.next_action.triggered.connect(self.worker.next_track)
-        # Previous
-        self.prev_action = self.menu.addAction("Previous")
-        self.prev_action.setIcon(get_themed_icon(":/icons/prev.svg"))
-        self.prev_action.triggered.connect(self.worker.prev_track)
-
-        self.menu.addSeparator()
-
-        self.like_action = self.menu.addAction("Like")
-        self.like_action.triggered.connect(self.worker.toggle_like_track)
-
-        self.dislike_action = self.menu.addAction("Dislike")
-        self.dislike_action.triggered.connect(self.worker.toggle_dislike_track)
-
-        self.menu.addSeparator()
-
-        # Exit
-        self.exit_action = self.menu.addAction("Exit")
-        self.exit_action.setIcon(get_themed_icon(":/icons/close.svg"))
-        self.exit_action.triggered.connect(QApplication.quit)
-        self.setContextMenu(self.menu)
-
-        self.setToolTip("Loading...")
-        self._update_play_state()
-        self._update_like_state()
-        self._update_dislike_state()
+        context_menu = QMenu(parent)
         
-    @Slot()
-    def _update_tooltip(self):
-        self.setToolTip(f"{self.worker.title}\n{self.worker.artist}")
+        self.play_pause_action = context_menu.addAction("")
+        self.play_pause_action.triggered.connect(self.play_pause_triggered)
+        
+        self.next_action = context_menu.addAction("Next")
+        self.next_action.setIcon(qta.icon("mdi.skip-next"))
+        self.next_action.triggered.connect(self.next_triggered)
+        
+        self.prev_action = context_menu.addAction("Previous")
+        self.prev_action.setIcon(qta.icon("mdi.skip-previous"))
+        self.prev_action.triggered.connect(self.prev_triggered)
 
-    @Slot()
-    def _update_play_state(self):
-        if self.worker.playing:
+        context_menu.addSeparator()
+
+        self.like_action = context_menu.addAction("Like")
+        self.like_action.triggered.connect(self.like_triggered)
+
+        self.dislike_action = context_menu.addAction("Dislike")
+        self.dislike_action.triggered.connect(self.dislike_triggered)
+
+        context_menu.addSeparator()
+
+        self.exit_action = context_menu.addAction("Exit")
+        self.exit_action.setIcon(qta.icon("mdi.close"))
+        self.exit_action.triggered.connect(QApplication.quit)
+
+        self.setContextMenu(context_menu)
+        self.setPlayState(False)
+        self.setLikeState(False)
+        self.setDislikeState(False)
+
+    def setPlayState(self, playing: bool):
+        if playing:
             self.play_pause_action.setText("Pause")
-            self.play_pause_action.setIcon(get_themed_icon(":/icons/pause.svg"))
+            self.play_pause_action.setIcon(qta.icon("mdi.pause"))
         else:
             self.play_pause_action.setText("Play")
-            self.play_pause_action.setIcon(get_themed_icon(":/icons/play.svg"))
+            self.play_pause_action.setIcon(qta.icon("mdi.play"))
 
-    @Slot()
-    def _update_like_state(self):
-        if self.worker.liked:
-            icon = get_themed_icon(":/icons/like_fill.svg")
-        else:
-            icon = get_themed_icon(":/icons/like.svg")
-        self.like_action.setIcon(icon)
+    def setLikeState(self, liked: bool):
+        self.like_action.setIcon(
+            qta.icon("mdi.thumb-up" if liked else "mdi.thumb-up-outline")
+        )
 
-    @Slot()
-    def _update_dislike_state(self):
-        if self.worker.disliked:
-            icon = get_themed_icon(":/icons/like_fill.svg")
-        else:
-            icon = get_themed_icon(":/icons/like.svg")
-        self.dislike_action.setIcon(rotate_icon(icon, 180))
+    def setDislikeState(self, disliked: bool):
+        self.dislike_action.setIcon(
+            qta.icon("mdi.thumb-down" if disliked else "mdi.thumb-down-outline")
+        )
+
+    def _on_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            self.triggered.emit()
+        
