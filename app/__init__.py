@@ -10,6 +10,7 @@ def run():
     import locale
 
     from PySide6.QtWidgets import QApplication
+    from .application import Application
 
     locale.setlocale(locale.LC_ALL, "")
 
@@ -20,6 +21,3 @@ def run():
 
     app = Application()
     return app.exec()
-
-
-from .application import Application
